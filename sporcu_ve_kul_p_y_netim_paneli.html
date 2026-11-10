@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sporcu ve Kulüp Yönetim Paneli</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase Realtime Database SDK (Bulut Senkronizasyonu İçin) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; }
+            .no-print { display: none !important; }
+            @page { margin: 10mm; size: A4 portrait; }
+            .print-page { page-break-after: always; width: 100%; height: auto; }
+            .print-page:last-child { page-break-after: auto; }
+            
+            .print-content { max-width: 100% !important; width: 100% !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+            .print-text-sm { font-size: 11px !important; line-height: 1.3 !important; }
+            .print-text-base { font-size: 13px !important; }
+            .print-text-lg { font-size: 15px !important; font-weight: bold; }
+            .print-table td, .print-table th { padding: 4px 6px !important; font-size: 12px !important; }
+            
+            * { box-shadow: none !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden selection:bg-blue-200 selection:text-blue-900">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.03\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]">
+        <div class="bg-white p-8 md:p-10 rounded-[2rem] shadow-2xl w-full max-w-md mx-4 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-900 text-white flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="fa-solid fa-lock text-2xl text-blue-400"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Sistem Girişi</h2>
+                <p id="login-subtitle" class="text-xs text-slate-500 mt-1">Lütfen kullanıcı adınızı ve parolanızı giriniz.</p>
+            </div>
+            
+            <form id="login-form" onsubmit="handleAuth(event)" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Kullanıcı Adı</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="auth-username" required class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none" placeholder="Kullanıcı adınız">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Parola</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="password" id="auth-password" required class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none" placeholder="••••••••">
+                    </div>
+                </div>
+                <div id="login-error" class="hidden text-xs font-medium text-red-500 bg-red-50 p-3 rounded-lg text-center border border-red-100">
+                    Hatalı kullanıcı adı veya parola!
+                </div>
+                <button type="submit" id="auth-btn" class="w-full py-3.5 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5">
+                    Sisteme Giriş Yap
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="main-app" class="hidden flex-col h-screen w-full">
+        
+        <!-- Top Header (Glassmorphism) -->
+        <header class="bg-white/80 backdrop-blur-lg border-b border-slate-200/60 h-16 flex items-center justify-between px-3 md:px-6 z-30 sticky top-0 shrink-0 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-900/20 text-base font-bold shrink-0">
+                    <i class="fa-solid fa-medal text-blue-400"></i>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="text-xs md:text-sm font-bold text-slate-900 truncate tracking-tight">Sporcu & Kulüp Yönetim</h1>
+                    <p class="text-[10px] text-slate-500 flex items-center gap-1.5 truncate">
+                        <span id="cloud-status-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span> 
+                        <span id="cloud-status-text" class="truncate font-medium text-emerald-600">Sistem & Bulut Aktif</span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <!-- SUPER ADMIN BUTTON (Only visible to Super Admin) -->
+                <button id="super-admin-btn" onclick="openSuperAdminModal()" class="hidden px-3 md:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-purple-500/20 flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield"></i> <span class="hidden sm:inline">Süper Panel</span>
+                </button>
+                <button onclick="openShareModal()" class="px-3 md:px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2 border border-indigo-200" title="Sporcu Kayıt Linki & QR Paylaş">
+                    <i class="fa-solid fa-qrcode"></i> <span class="hidden sm:inline">Kayıt Linki</span>
+                </button>
+                <button onclick="openApiKeyModal()" class="px-3 md:px-4 py-2 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 text-slate-700 hover:text-amber-700 text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2" title="Gemini API Anahtarı">
+                    <i class="fa-solid fa-key text-amber-500"></i> <span class="hidden sm:inline">AI Key</span>
+                </button>
+                <button onclick="openBackupModal()" class="px-3 md:px-4 py-2 bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2" title="Yedekle & Yükle">
+                    <i class="fa-solid fa-database text-emerald-600"></i> <span class="hidden sm:inline">Yedek</span>
+                </button>
+                <button onclick="openClubModal()" class="px-3 md:px-4 py-2 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-building-columns text-blue-600"></i> <span class="hidden sm:inline">Kulüpler</span>
+                </button>
+                <button onclick="openPrintModal()" class="px-3 md:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-500/20 flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> <span class="hidden sm:inline">Evraklar</span>
+                </button>
+                <button onclick="logout()" class="w-9 h-9 md:w-auto md:px-4 md:py-2 bg-red-50 hover:bg-red-500 text-red-600 hover:text-white text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2" title="Çıkış Yap">
+                    <i class="fa-solid fa-power-off"></i> <span class="hidden md:inline">Çıkış</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body Layout -->
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Sidebar - Athletes List -->
+            <aside id="sidebar-view" class="w-full md:w-[340px] bg-slate-900 border-r border-slate-800 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] flex flex-col shrink-0 z-20 absolute md:relative h-full transition-transform duration-300">
+                    <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+                        <h2 class="font-bold text-slate-100 text-xs uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-users text-blue-400"></i> Sporcular (<span id="athlete-count">0</span>)
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openPendingModal()" class="relative w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 flex items-center justify-center shadow-lg transition-all" title="Bekleyen Başvurular">
+                                <i class="fa-solid fa-user-clock text-xs"></i>
+                                <span id="pending-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center hidden">0</span>
+                            </button>
+                            <button onclick="openAthleteForm()" class="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-900/30 transition-all hover:scale-105">
+                                <i class="fa-solid fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                <!-- Search Box & Filters -->
+                <div class="p-3 border-b border-slate-800 space-y-2 bg-slate-800/30">
+                    <div class="relative">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="athlete-search" oninput="filterAthletes()" placeholder="İsim veya T.C. ile ara..." class="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="filter-club" onchange="updateFilterBranches(); filterAthletes();" class="w-full px-2 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:border-blue-500 transition-all font-medium shadow-sm">
+                            <option value="">Tüm Kulüpler</option>
+                        </select>
+                        <select id="filter-branch" onchange="filterAthletes()" class="w-full px-2 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:border-blue-500 transition-all font-medium shadow-sm">
+                            <option value="">Tüm Branşlar</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Athletes List -->
+                <div id="athletes-list" class="flex-1 overflow-y-auto p-3 space-y-2 pb-24 md:pb-3 bg-slate-900 custom-scrollbar">
+                    <!-- Dynamically populated -->
+                </div>
+            </aside>
+
+            <!-- Right Content / Form View -->
+            <main id="main-view" class="flex-1 overflow-y-auto p-3 md:p-6 lg:p-8 w-full relative bg-slate-50">
+                <div class="max-w-4xl mx-auto pb-24 md:pb-10 space-y-6">
+                    
+                    <!-- Dashboard Banner -->
+                    <div id="dashboard-banner" class="bg-slate-900 rounded-[2rem] p-6 md:p-8 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden border border-slate-800">
+                        <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-600/20 rounded-full blur-[3rem] pointer-events-none"></div>
+                        <div class="absolute -left-10 -bottom-10 w-60 h-60 bg-indigo-600/20 rounded-full blur-[3rem] pointer-events-none"></div>
+                        <div class="relative z-10 space-y-5">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <span class="px-3 py-1 bg-slate-800/80 text-blue-300 rounded-full text-[10px] font-semibold tracking-widest uppercase border border-slate-700 backdrop-blur-sm">Sistem Özeti</span>
+                                    <h2 class="text-xl md:text-2xl font-bold mt-3 tracking-tight text-white/95">Operasyon Merkezi</h2>
+                                    <p class="text-xs text-slate-400 mt-1 max-w-xl leading-relaxed">Lisans vize işlemleri, ilişik kesme belgeleri ve sağlık raporlarını profesyonelce yönetin.</p>
+                                </div>
+                                <button onclick="openAthleteForm()" class="px-5 py-3 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2 shrink-0">
+                                    <i class="fa-solid fa-user-plus text-blue-600"></i> Yeni Sporcu Kaydı
+                                </button>
+                            </div>
+                            
+                            <!-- Stats Grid -->
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-5 border-t border-slate-800/80">
+                                <div class="bg-slate-800/50 backdrop-blur-md rounded-2xl p-4 border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                                    <div class="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                                        <i class="fa-solid fa-users text-blue-400"></i> Toplam Sporcu
+                                    </div>
+                                    <p class="text-2xl font-bold text-white" id="stat-athlete-count">0</p>
+                                </div>
+                                <div class="bg-slate-800/50 backdrop-blur-md rounded-2xl p-4 border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                                    <div class="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                                        <i class="fa-solid fa-shield-halved text-indigo-400"></i> Kayıtlı Kulüp
+                                    </div>
+                                    <p class="text-2xl font-bold text-white" id="stat-club-count">0</p>
+                                </div>
+                                <div class="bg-slate-800/50 backdrop-blur-md rounded-2xl p-4 border border-slate-700/50 col-span-2 sm:col-span-1 hover:bg-slate-800 transition-colors">
+                                    <div class="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                                        <i class="fa-solid fa-medal text-emerald-400"></i> Aktif Branş
+                                    </div>
+                                    <p class="text-2xl font-bold text-white" id="stat-branch-count">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Default Welcome / Empty State -->
+                    <div id="empty-state" class="bg-white rounded-[2rem] border border-slate-200/60 p-10 md:p-16 text-center space-y-5 shadow-sm mx-1 md:mx-0">
+                        <div class="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-slate-50 to-slate-100 text-slate-300 flex items-center justify-center mx-auto text-3xl shadow-inner border border-slate-200/50">
+                            <i class="fa-solid fa-address-card"></i>
+                        </div>
+                        <div class="space-y-2">
+                            <h3 class="text-lg font-bold text-slate-800 tracking-tight">İşlem Yapmak İçin Seçim Yapın</h3>
+                            <p class="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">Sol menüden kayıtlı bir sporcuya tıklayabilir ya da yukarıdaki butonu kullanarak yeni kayıt oluşturabilirsiniz.</p>
+                        </div>
+                    </div>
+
+                    <!-- Athlete Form Container -->
+                    <div id="athlete-form-container" class="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm p-5 sm:p-8 hidden space-y-6">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-5">
+                            <div class="flex items-center gap-4">
+                                <button type="button" onclick="closeAthleteForm()" class="md:hidden w-10 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 transition border border-slate-200">
+                                    <i class="fa-solid fa-arrow-left"></i>
+                                </button>
+                                <div>
+                                    <h3 id="athlete-form-title" class="text-lg md:text-xl font-bold text-slate-900 tracking-tight">Yeni Sporcu Ekle</h3>
+                                    <p class="text-[11px] md:text-xs text-slate-500 mt-0.5">Gemini AI yapay zeka ile kimlikten bilgileri otomatik tarayın.</p>
+                                </div>
+                            </div>
+                            <button onclick="closeAthleteForm()" class="hidden md:flex w-10 h-10 rounded-2xl items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition border border-transparent hover:border-slate-200">
+                                <i class="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
+
+                        <form id="athlete-form" onsubmit="saveAthlete(event)" class="space-y-6">
+                            <input type="hidden" id="ath-id">
+                            
+                            <!-- OCR Status Info Box -->
+                            <div id="ocr-status-box" class="hidden p-3.5 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-3">
+                                <i class="fa-solid fa-circle-notch fa-spin text-blue-600 text-base"></i>
+                                <span id="ocr-status-text" class="text-xs font-semibold text-blue-900">Yapay zeka kimliği analiz ediyor, lütfen bekleyin...</span>
+                            </div>
+
+                            <!-- ID Front & Back OCR Section -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Front -->
+                                <div class="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4 hover:border-blue-300 transition-colors">
+                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="fa-solid fa-id-card text-blue-500"></i> Kimlik Ön Yüz
+                                    </h4>
+                                    <div class="flex items-center gap-3">
+                                        <label class="flex-1 py-3 px-4 bg-slate-50 hover:bg-blue-50 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl cursor-pointer transition flex items-center justify-center gap-2 group">
+                                            <i class="fa-solid fa-upload text-slate-400 group-hover:text-blue-500"></i>
+                                            <span class="text-xs font-semibold text-slate-600 group-hover:text-blue-700">Ön Yüz Seç</span>
+                                            <input type="file" id="id-front" accept="image/*" class="hidden" onchange="handleImageUpload(this, 'front')">
+                                        </label>
+                                        <button type="button" onclick="scanID('front')" class="px-4 py-3 bg-slate-900 hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap">
+                                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI ile Tara
+                                        </button>
+                                    </div>
+                                    <img id="preview-front" class="hidden w-full h-32 object-contain bg-slate-100 rounded-lg border border-slate-200">
+                                </div>
+                                <!-- Back -->
+                                <div class="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4 hover:border-blue-300 transition-colors">
+                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="fa-solid fa-id-card text-indigo-500"></i> Kimlik Arka Yüz
+                                    </h4>
+                                    <div class="flex items-center gap-3">
+                                        <label class="flex-1 py-3 px-4 bg-slate-50 hover:bg-indigo-50 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl cursor-pointer transition flex items-center justify-center gap-2 group">
+                                            <i class="fa-solid fa-upload text-slate-400 group-hover:text-indigo-500"></i>
+                                            <span class="text-xs font-semibold text-slate-600 group-hover:text-indigo-700">Arka Yüz Seç</span>
+                                            <input type="file" id="id-back" accept="image/*" class="hidden" onchange="handleImageUpload(this, 'back')">
+                                        </label>
+                                        <button type="button" onclick="scanID('back')" class="px-4 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap">
+                                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI ile Tara
+                                        </button>
+                                    </div>
+                                    <img id="preview-back" class="hidden w-full h-32 object-contain bg-slate-100 rounded-lg border border-slate-200">
+                                </div>
+                            </div>
+
+                            <!-- Personal Details Box -->
+                            <div class="p-5 sm:p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-5">
+                                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-3 flex items-center gap-2">
+                                    <i class="fa-solid fa-user-pen text-emerald-500"></i> Kişisel Bilgiler & Kulüp
+                                </h4>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div class="sm:row-span-2 flex flex-col gap-3">
+                                        <div class="w-full aspect-[3/4] bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl overflow-hidden relative group">
+                                            <img id="profile-preview" src="https://placehold.co/300x400/f8fafc/94a3b8?text=Vesikalik" class="w-full h-full object-cover">
+                                            <label class="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                                                <i class="fa-solid fa-camera text-2xl text-white mb-2"></i>
+                                                <span class="text-white text-xs font-semibold">Fotoğraf Yükle</span>
+                                                <input type="file" id="ath-pic" accept="image/*" class="hidden" onchange="previewProfilePic(this)">
+                                            </label>
+                                        </div>
+                                        <button type="button" onclick="shareProfilePic()" class="w-full py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+                                            <i class="fa-solid fa-share-nodes"></i> Fotoğrafı Paylaş
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Adı <span class="text-red-500">*</span></label><input type="text" id="ath-first" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Soyadı <span class="text-red-500">*</span></label><input type="text" id="ath-last" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">T.C. Kimlik No <span class="text-red-500">*</span></label><input type="text" id="ath-tc" required maxlength="11" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Doğum Tarihi <span class="text-red-500">*</span></label><input type="date" id="ath-dob" required onchange="checkAgeForGuardian()" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Baba Adı</label><input type="text" id="ath-father" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Anne Adı</label><input type="text" id="ath-mother" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Kan Grubu</label><input type="text" id="ath-blood" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Doğum Yeri</label><input type="text" id="ath-pob" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Telefon</label><input type="text" id="ath-phone" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Okuduğu Okul</label><input type="text" id="ath-school" placeholder="Örn: Fatsa Anadolu Lisesi" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Sınıfı / Şubesi</label><input type="text" id="ath-grade" placeholder="Örn: 9/A" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none uppercase"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-700 mb-1">Okul Numarası</label><input type="text" id="ath-school-no" placeholder="Örn: 1054" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-slate-50 outline-none"></div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Kulüp <span class="text-red-500">*</span></label>
+                                        <select id="ath-club" required onchange="updateBranchDropdown(this.value)" class="w-full px-3 py-2.5 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50">
+                                            <option value="">Kulüp Seçin</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Branş(lar) <span class="text-red-500">*</span></label>
+                                        <div id="ath-branch-container" class="w-full p-2 text-xs border border-slate-200 rounded-lg bg-slate-50 max-h-32 overflow-y-auto flex flex-col gap-1.5 font-medium">
+                                            <span class="text-slate-400 py-1">Önce Kulüp Seçin</span>
+                                        </div>
+                                        <p id="branch-error" class="text-[10px] text-red-500 hidden mt-1">Lütfen en az bir branş seçin.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Guardian Section (Auto if under 18) -->
+                            <div id="guardian-section" class="bg-amber-50 border border-amber-200/80 rounded-2xl p-5 hidden space-y-4 shadow-sm">
+                                <h4 class="text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-2">
+                                    <i class="fa-solid fa-users-rays text-amber-600"></i> Veli / Vasi Bilgileri <span class="text-[9px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-md ml-2 normal-case tracking-normal">18 Yaş Altı</span>
+                                </h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div><label class="block text-xs font-semibold text-amber-900 mb-1">Veli Adı Soyadı</label><input type="text" id="guard-name" class="w-full px-3 py-2 text-xs border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-400 bg-white outline-none uppercase"></div>
+                                    <div><label class="block text-xs font-semibold text-amber-900 mb-1">Veli T.C. No</label><input type="text" id="guard-tc" maxlength="11" class="w-full px-3 py-2 text-xs border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-400 bg-white outline-none"></div>
+                                    <div><label class="block text-xs font-semibold text-amber-900 mb-1">Yakınlık Derecesi</label><input type="text" id="guard-relation" placeholder="Örn: Babası, Annesi" class="w-full px-3 py-2 text-xs border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-400 bg-white outline-none uppercase"></div>
+                                </div>
+                            </div>
+
+                            <!-- Health Report -->
+                            <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-2">
+                                    <i class="fa-solid fa-notes-medical text-rose-500"></i> Sağlık Raporu
+                                </h4>
+                                <div class="flex flex-col sm:flex-row items-center gap-4 pt-2">
+                                    <label class="w-full sm:w-auto px-4 py-3 bg-slate-50 hover:bg-rose-50 border-2 border-dashed border-slate-300 hover:border-rose-400 rounded-xl cursor-pointer transition flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-upload text-slate-400"></i>
+                                        <span class="text-xs font-semibold text-slate-600">Rapor Seç / Fotoğraf Çek</span>
+                                        <input type="file" id="health-report" accept="image/*,application/pdf" class="hidden" onchange="handleHealthReport(this)">
+                                    </label>
+                                    <div id="health-status" class="flex-1 text-xs font-medium text-slate-500">Henüz rapor yüklenmedi.</div>
+                                    <button type="button" id="btn-view-health" class="hidden px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition">Raporu Gör</button>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button type="button" onclick="closeAthleteForm()" class="px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl shadow-sm">İptal</button>
+                                <button type="submit" class="px-8 py-2.5 bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md transition-all">Sporcuyu Kaydet</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- SHARE / REGISTRATION LINK MODAL -->
+    <div id="share-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-qrcode text-indigo-600"></i> Online Kayıt Linki & QR</h3>
+                <button onclick="closeShareModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-4 bg-white text-center">
+                <p class="text-xs text-slate-500 leading-relaxed">Bu bağlantıyı sporcularınıza göndererek kendi bilgilerini, kimlik fotoğraflarını ve sağlık raporlarını sisteme yüklemelerini sağlayabilirsiniz.</p>
+                
+                <div id="local-file-warning" class="hidden bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs text-left mb-2 shadow-sm">
+                    <strong>⚠️ DİKKAT (Link Başkasında Açılmaz):</strong> Uygulamayı şu an kendi bilgisayarınızda çevrimdışı (local) çalıştırıyorsunuz. 
+                    Bu nedenle gönderdiğiniz link başka telefonlardan <strong>açılamaz.</strong><br><br>
+                    <strong>Çözüm:</strong> Linkin herkes tarafından açılabilmesi için, bu HTML dosyasını <i>tiiny.host</i> veya <i>netlify.com/drop</i> gibi ücretsiz bir internet servisine tek tıkla yüklemeniz (hosting) gerekir.
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-2">
+                    <input type="text" id="share-link-input" readonly class="w-full bg-transparent text-xs text-slate-700 outline-none font-mono truncate" value="">
+                    <button onclick="copyShareLink()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shrink-0">Kopyala</button>
+                </div>
+
+                <div class="flex justify-center my-3">
+                    <div id="qrcode-container" class="p-3 bg-white border border-slate-200 rounded-xl shadow-inner inline-block">
+                        <div id="qr-code-view" class="w-36 h-36 flex items-center justify-center bg-slate-100 text-slate-400 font-bold text-xs rounded">QR Kod</div>
+                    </div>
+                </div>
+
+                <button onclick="openPublicForm()" class="w-full py-3 bg-slate-900 hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-external-link-alt"></i> Kayıt Formunu Yeni Sekmede Aç
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PENDING APPLICATIONS MODAL -->
+    <div id="pending-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col h-[80vh] overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-user-clock text-amber-500"></i> Bekleyen Online Başvurular</h3>
+                <button onclick="closePendingModal()" class="w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="pending-list" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 custom-scrollbar">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- PUBLIC REGISTRATION VIEW (Overlay for online submission) -->
+    <div id="public-registration-screen" class="fixed inset-0 bg-slate-900 z-50 hidden overflow-y-auto p-4 md:p-8">
+        <div class="max-w-xl mx-auto bg-white rounded-[2rem] shadow-2xl p-6 md:p-8 space-y-6 my-6">
+            <div class="text-center border-b border-slate-100 pb-5">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 shadow-lg">
+                    <i class="fa-solid fa-user-plus text-lg"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900 tracking-tight">Sporcu Ön Kayıt Formu</h2>
+                <p class="text-xs text-slate-500 mt-1">Lütfen bilgilerinizi eksiksiz doldurun ve belgelerinizi yükleyin.</p>
+            </div>
+
+            <form id="public-reg-form" onsubmit="submitPublicRegistration(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Kulüp Seçimi <span class="text-red-500">*</span></label>
+                    <select id="pub-club" required onchange="updatePublicBranches()" class="w-full px-3 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl bg-slate-50 outline-none">
+                        <option value="">Kulüp Seçin</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Branş Seçimi <span class="text-red-500">*</span></label>
+                    <div id="pub-branch-container" class="w-full p-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 max-h-32 overflow-y-auto flex flex-col gap-1.5 font-medium">
+                        <span class="text-slate-400 py-1">Önce Kulüp Seçin</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Adı <span class="text-red-500">*</span></label><input type="text" id="pub-first" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase"></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Soyadı <span class="text-red-500">*</span></label><input type="text" id="pub-last" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">T.C. Kimlik No <span class="text-red-500">*</span></label><input type="text" id="pub-tc" required maxlength="11" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none"></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Doğum Tarihi <span class="text-red-500">*</span></label><input type="date" id="pub-dob" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Baba Adı</label><input type="text" id="pub-father" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase"></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Telefon</label><input type="text" id="pub-phone" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Okuduğu Okul</label><input type="text" id="pub-school" placeholder="Örn: Fatsa Anadolu Lisesi" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase"></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Sınıfı / Şubesi</label><input type="text" id="pub-grade" placeholder="Örn: 9/A" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase"></div>
+                    <div><label class="block text-xs font-semibold text-slate-700 mb-1">Okul No</label><input type="text" id="pub-school-no" placeholder="Örn: 1054" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none"></div>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <label class="block text-xs font-semibold text-slate-700">Vesikalık Fotoğraf (Kamera / Galeri) <span class="text-red-500">*</span></label>
+                    <input type="file" id="pub-pic" accept="image/*" capture="environment" required class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-slate-700">Kimlik Ön Yüz <span class="text-red-500">*</span></label>
+                        <input type="file" id="pub-front" accept="image/*" capture="environment" required class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-slate-700">Kimlik Arka Yüz <span class="text-red-500">*</span></label>
+                        <input type="file" id="pub-back" accept="image/*" capture="environment" required class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-700">Sağlık Raporu <span class="text-red-500">*</span></label>
+                    <input type="file" id="pub-health" accept="image/*,application/pdf" capture="environment" required class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button type="button" onclick="closePublicForm()" class="w-1/3 py-3 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl">İptal</button>
+                    <button type="submit" class="w-2/3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg transition">Başvuruyu Gönder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Active Print Area -->
+    <div id="print-area" class="hidden"></div>
+
+    <!-- PRINT / DOCUMENTS MODAL -->
+    <div id="print-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+                <div class="flex items-center gap-3">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-print text-blue-600"></i> Evrak ve Belge Merkezleri</h3>
+                    <select id="print-athlete-select" onchange="updatePrintPreview()" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold bg-white outline-none">
+                        <option value="">Önce Sporcu Seçin...</option>
+                    </select>
+                    <select id="print-branch-select" onchange="updatePrintPreview()" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold bg-white outline-none">
+                        <option value="">Evrak Branşı...</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="triggerPrint()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow flex items-center gap-2"><i class="fa-solid fa-print"></i> Yazdır / PDF</button>
+                    <button onclick="closePrintModal()" class="w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <!-- Print Tabs -->
+            <div class="flex border-b border-slate-200 bg-slate-100/60 px-4 shrink-0 overflow-x-auto">
+                <button onclick="switchPrintTab('tab-vize', this)" class="print-tab active px-4 py-3 text-xs font-bold border-b-2 border-indigo-600 text-indigo-700 whitespace-nowrap">Vize / Tescil</button>
+                <button onclick="switchPrintTab('tab-transfer', this)" class="print-tab px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 whitespace-nowrap">İlişik Kesme</button>
+                <button onclick="switchPrintTab('tab-yuzme', this)" class="print-tab px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 whitespace-nowrap">Yüzme Beyanı</button>
+                <button onclick="switchPrintTab('tab-kimlik', this)" class="print-tab px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 whitespace-nowrap">Kimlik Fotokopisi</button>
+                <button onclick="switchPrintTab('tab-saglik', this)" class="print-tab px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 whitespace-nowrap">Sağlık Raporu</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 bg-slate-100 flex justify-center">
+                <!-- Tab 1: Vize Tescil Belgesi -->
+                <div id="tab-vize" class="print-content bg-white w-full max-w-[210mm] min-h-[297mm] p-10 shadow-lg rounded-xl space-y-6 text-slate-900 text-xs">
+                    <div class="text-center font-bold text-sm tracking-tight border-b pb-3">
+                        YENİ LİSANS - VİZE YENİLEME<br>
+                        <span class="text-xs font-normal text-slate-600">KULÜP / FERDİ - SPORCUNUN KULÜPLE İLİŞKİSİNİ GÖSTEREN BELGE</span>
+                    </div>
+
+                    <table class="w-full border-collapse border border-slate-400 print-table">
+                        <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-1.5 text-center font-bold">BEYANDA BULUNAN SPORCUNUN</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border border-slate-400 p-2 font-semibold w-1/3">Adı Soyadı</td><td id="pr-v-name" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">T.C. Kimlik No</td><td id="pr-v-tc" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Doğum Yeri Ve Tarihi</td><td id="pr-v-dob" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Baba Adı</td><td id="pr-v-father" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Ana Adı</td><td id="pr-v-mother" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Telefon</td><td id="pr-v-phone" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">İmzası</td><td class="border border-slate-400 p-6"></td></tr>
+                        </tbody>
+                    </table>
+
+                    <table class="w-full border-collapse border border-slate-400 print-table">
+                        <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-1.5 text-center font-bold">18 YAŞINDAN KÜÇÜK İSE VELİ/VASİNİN</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border border-slate-400 p-2 font-semibold w-1/3">Adı Soyadı</td><td id="pr-v-g-name" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">T.C. Kimlik No</td><td id="pr-v-g-tc" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Doğum Yeri Ve Tarihi</td><td class="border border-slate-400 p-2 font-medium">-</td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Telefon</td><td class="border border-slate-400 p-2 font-medium">-</td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">İmzası</td><td class="border border-slate-400 p-6"></td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="space-y-1 font-semibold">
+                        <div>SPOR DALI: <span id="pr-v-branch" class="font-normal uppercase underline"></span></div>
+                        <div>KULÜP ADI: <span id="pr-v-club" class="font-normal uppercase underline"></span></div>
+                    </div>
+
+                    <p class="text-[11px] leading-relaxed">Yukarıda kimlik bilgileri bulunan Sporcu Kulübümüz bünyesinde Sporcu Lisansı alması uygun görülmüş olup, İmzanın Veliye ait olduğunu tasdik ederim.</p>
+
+                    <div class="grid grid-cols-2 gap-8 pt-4">
+                        <div class="text-center space-y-8">
+                            <p class="font-bold">Kulüp Başkanlığı<br>İmza/Mühür</p>
+                            <p>........../........../20.....</p>
+                        </div>
+                        <div class="text-center space-y-8">
+                            <p class="font-bold">Gençlik ve Spor İl/İlçe Müdürlüğü / Federasyon Yetkilisi<br>İmza/Mühür</p>
+                            <p>........../........../20.....</p>
+                        </div>
+                    </div>
+
+                    <div class="text-[10px] text-slate-500 pt-4 border-t space-y-0.5">
+                        <p><strong>Not:</strong> Sistemde Sağlık Raporu Yok ise Sağlık Raporu - Kimlik Fotokopisi - 1 Adet Vesikalık - Form Bilgisayarda doldurulacaktır.</p>
+                        <p><strong>Bilgi:</strong> Her Lisanslı Sporcuya Sporcu Kartı yapılmaktadır.</p>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Transfer / İlişik Kesme (PDF Birebir Resmi Tasarım Düzeltilmiş) -->
+                <div id="tab-transfer" class="print-content bg-white w-full max-w-[210mm] min-h-[297mm] p-8 shadow-lg rounded-xl space-y-4 text-slate-900 text-[11px] hidden">
+                    <div class="text-center font-bold text-xs tracking-tight border-b pb-2">
+                        SPOR KULÜBÜ MUVAFAKAT - İLİŞİK KESME BELGESİ
+                    </div>
+                    <p class="text-[10px] leading-snug">Aşağıda açık kimliği yazılı sporcunun, Kulübümüz ile hiçbir ilişiği kalmamış olup, başka bir spor kulübüne transfer yapmasına muvafakat veriyoruz.</p>
+
+                    <table class="w-full border-collapse border border-slate-400 print-table text-[10px]">
+                        <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-1 text-center font-bold">SPORCUNUN</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold w-1/3">Adı Soyadı</td><td id="pr-t-name" class="border border-slate-400 p-1.5 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold">TC Kimlik No</td><td id="pr-t-tc" class="border border-slate-400 p-1.5 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold">Doğum Yeri Ve Tarihi</td><td id="pr-t-dob" class="border border-slate-400 p-1.5 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold">Baba Adı</td><td id="pr-t-father" class="border border-slate-400 p-1.5 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold">Ana Adı</td><td id="pr-t-mother" class="border border-slate-400 p-1.5 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold">Telefonu</td><td id="pr-t-phone" class="border border-slate-400 p-1.5 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-1.5 font-semibold">İmzası</td><td class="border border-slate-400 p-4"></td></tr>
+                        </tbody>
+                    </table>
+
+                    <table class="w-full border-collapse border border-slate-400 print-table text-[10px]">
+                        <thead><tr><th colspan="3" class="bg-slate-100 border border-slate-400 p-1 text-center font-bold">SPOR KULÜBÜ YETKİLİSİNİN</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 font-semibold w-1/3">Adı Soyadı</td>
+                                <td id="pr-t-auth-name" class="border border-slate-400 p-1.5 font-medium"></td>
+                                <td class="border border-slate-400 p-1 text-center font-bold w-1/3">Kulüp Başkanlığı</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 font-semibold">TC Kimlik No</td>
+                                <td id="pr-t-auth-tc" class="border border-slate-400 p-1.5 font-medium"></td>
+                                <td rowspan="3" class="border border-slate-400 p-4 text-center align-middle font-bold">İmza/Mühür</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 font-semibold" id="pr-t-auth-title">Görevi</td>
+                                <td class="border border-slate-400 p-1.5 font-medium">-</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 font-semibold">Telefonu</td>
+                                <td id="pr-t-auth-phone" class="border border-slate-400 p-1.5 font-medium"></td>
+                            </tr>
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 font-semibold">İmza - Kaşe</td>
+                                <td colspan="2" class="border border-slate-400 p-2">20...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="text-center font-bold text-xs pt-1">TAAHHÜTNAME</div>
+                    <p class="text-[10px] leading-snug">Transfer yapacağım sezon içerisinde milli takım seçmeleri hariç kulübümü temsilen herhangi bir resmi müsabakaya katılmadığımı beyan eder, aksi durum verilecek cezayı kabul ederim. ......../...../20.....</p>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <table class="w-full border-collapse border border-slate-400 print-table text-[9px]">
+                            <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-1 text-center font-bold">BEYANDA BULUNAN SPORCUNUN</th></tr></thead>
+                            <tbody>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Adı Soyadı</td><td id="pr-t2-name" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">TC Kimlik No</td><td id="pr-t2-tc" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Doğum Yeri Ve Tarihi</td><td id="pr-t2-dob" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Baba Adı</td><td id="pr-t2-father" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Ana Adı</td><td id="pr-t2-mother" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Telefonu</td><td id="pr-t2-phone" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">İmzası</td><td class="border border-slate-400 p-3"></td></tr>
+                            </tbody>
+                        </table>
+
+                        <table class="w-full border-collapse border border-slate-400 print-table text-[9px]">
+                            <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-1 text-center font-bold">18 YAŞINDAN KÜÇÜK İSE VELİ VASİNİN</th></tr></thead>
+                            <tbody>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Adı Soyadı</td><td id="pr-t-g-name" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">TC Kimlik No</td><td id="pr-t-g-tc" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">Görevi / Yakınlık</td><td id="pr-t-g-rel" class="border border-slate-400 p-1"></td></tr>
+                                <tr><td class="border border-slate-400 p-1 font-semibold">İmzası</td><td class="border border-slate-400 p-8"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-center pt-2 text-[10px]">
+                        <div class="border border-slate-400 p-2 rounded">
+                            <p class="font-bold">Kulüp Başkanlığı</p>
+                            <p>İmza/Mühür</p>
+                            <p class="mt-2">20......</p>
+                        </div>
+                        <div class="border border-slate-400 p-2 rounded">
+                            <p class="font-bold">Gençlik ve Spor İl/İlçe Müdürlüğü / Federasyon Yetkilisi</p>
+                            <p>İmza/Mühür</p>
+                            <p class="mt-2">20.....</p>
+                        </div>
+                    </div>
+
+                    <div class="text-[9px] text-slate-500 pt-1 border-t space-y-0.5">
+                        <p><strong>Not:</strong> Sistemde Sağlık Raporu Yok ise Sağlık Raporu - Kimlik Fotokopisi - 1 Adet Vesikalık - Form Bilgisayarda doldurulacaktır.</p>
+                        <p><strong>Bilgi:</strong> Her Lisanslı Sporcuya Sporcu Kartı yapılmaktadır.</p>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Yüzme Bildiğine Dair Beyan -->
+                <div id="tab-yuzme" class="print-content bg-white w-full max-w-[210mm] min-h-[297mm] p-10 shadow-lg rounded-xl space-y-6 text-slate-900 text-xs hidden">
+                    <div class="text-center font-bold text-sm tracking-tight border-b pb-3">
+                        YÜZME BİLDİĞİNE DAİR BEYAN
+                    </div>
+                    <p class="text-center text-xs leading-relaxed max-w-lg mx-auto font-medium">
+                        Yüzme müsabakalarında yarışacak kadar yüzme bildiğimi beyan eder, yapılacak olan müsabakalar için tarafıma sporcu lisansı verilmesini arz ederim.
+                    </p>
+
+                    <table class="w-full border-collapse border border-slate-400 print-table mt-4">
+                        <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-2 text-center font-bold">BEYANDA BULUNAN SPORCUNUN</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border border-slate-400 p-2 font-semibold w-1/3">Adı Soyadı</td><td id="pr-y-name" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">T.C. Kimlik No</td><td id="pr-y-tc" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Doğum Yeri ve Tarihi</td><td id="pr-y-dob" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Baba Adı</td><td id="pr-y-father" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Ana Adı</td><td id="pr-y-mother" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">İmzası</td><td class="border border-slate-400 p-8"></td></tr>
+                        </tbody>
+                    </table>
+
+                    <table class="w-full border-collapse border border-slate-400 print-table mt-6">
+                        <thead><tr><th colspan="2" class="bg-slate-100 border border-slate-400 p-2 text-center font-bold">18 Yaşından Küçük ise Veli/Vasinin</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border border-slate-400 p-2 font-semibold w-1/3">Adı Soyadı</td><td id="pr-y-g-name" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">T.C. Kimlik No</td><td id="pr-y-g-tc" class="border border-slate-400 p-2 font-medium"></td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">Doğum Yeri ve Tarihi</td><td class="border border-slate-400 p-2 font-medium">-</td></tr>
+                            <tr><td class="border border-slate-400 p-2 font-semibold">İmzası</td><td class="border border-slate-400 p-8"></td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="text-center space-y-3 pt-12">
+                        <p class="font-bold">Gençlik ve Spor İl/İlçe Müdürlüğü/Federasyon Yetkilisi</p>
+                        <p class="font-bold">İmza / Mühür</p>
+                        <p class="pt-4">.........../.........../20.....</p>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Kimlik Fotokopisi -->
+                <div id="tab-kimlik" class="print-content bg-white w-full max-w-[210mm] min-h-[297mm] p-10 shadow-lg rounded-xl space-y-6 text-slate-900 text-xs hidden">
+                    <div class="text-center font-bold text-sm tracking-tight border-b pb-3">KİMLİK FOTOKOPİSİ</div>
+                    <div class="space-y-6 flex flex-col items-center">
+                        <div>
+                            <p class="font-bold text-xs mb-2 text-slate-700">Ön Yüz:</p>
+                            <img id="pr-id-front" class="max-w-md w-full border border-slate-300 rounded-lg shadow-sm">
+                        </div>
+                        <div>
+                            <p class="font-bold text-xs mb-2 text-slate-700">Arka Yüz:</p>
+                            <img id="pr-id-back" class="max-w-md w-full border border-slate-300 rounded-lg shadow-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Sağlık Raporu -->
+                <div id="tab-saglik" class="print-content bg-white w-full max-w-[210mm] min-h-[297mm] p-10 shadow-lg rounded-xl space-y-6 text-slate-900 text-xs hidden">
+                    <div class="text-center font-bold text-sm tracking-tight border-b pb-3">SAĞLIK RAPORU</div>
+                    <div class="flex justify-center items-center h-full min-h-[400px]">
+                        <div id="pr-health-empty" class="text-slate-400 font-medium">Sağlık raporu yüklenmemiş.</div>
+                        <img id="pr-health-img" class="max-w-full max-h-[800px] object-contain hidden">
+                        <iframe id="pr-health-pdf" class="w-full h-[800px] border-none hidden"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLUB MANAGEMENT MODAL -->
+    <div id="club-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-building-columns text-blue-600"></i> Kulüp Yönetimi</h3>
+                <button onclick="closeClubModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-50">
+                <!-- Club Form -->
+                <form id="club-form" onsubmit="saveClub(event)" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <input type="hidden" id="club-id">
+                    <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                        <i class="fa-solid fa-plus text-blue-600"></i> Kulüp Bilgileri Ekle / Düzenle
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kulüp Adı <span class="text-red-500">*</span></label>
+                            <input type="text" id="club-name" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kulüp Sicil No</label>
+                            <input type="text" id="club-sicil" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kuruluş Tarihi</label>
+                            <input type="date" id="club-founded" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Vergi Dairesi</label>
+                            <input type="text" id="club-vd" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Vergi No</label>
+                            <input type="text" id="club-vno" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Branşlar (Virgülle ayırın)</label>
+                            <input type="text" id="club-branches" placeholder="Yüzme, Güreş, Basketbol" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                    </div>
+                    
+                    <h5 class="font-bold text-xs text-slate-800 uppercase tracking-wider pt-2 border-t flex items-center gap-2">
+                        <i class="fa-solid fa-user-tie text-blue-600"></i> Kulüp Yetkilisi Bilgileri
+                    </h5>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Yetkili Adı Soyadı</label>
+                            <input type="text" id="club-auth-name" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Görevi / Unvanı</label>
+                            <input type="text" id="club-auth-title" placeholder="Kulüp Başkanı" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none uppercase font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Yetkili T.C. No</label>
+                            <input type="text" id="club-auth-tc" maxlength="11" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Yetkili Telefon</label>
+                            <input type="text" id="club-auth-phone" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Notlar / Adres</label>
+                        <input type="text" id="club-notes" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" onclick="clearClubForm()" class="px-4 py-2 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-200 transition">Temizle</button>
+                        <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition">Kulübü Kaydet</button>
+                    </div>
+                </form>
+
+                <!-- Club List -->
+                <div class="space-y-3">
+                    <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wider">Kayıtlı Kulüpler</h4>
+                    <div id="club-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPER ADMIN MANAGEMENT MODAL -->
+    <div id="super-admin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-purple-900 to-indigo-900 text-white shrink-0">
+                <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-user-shield text-purple-400"></i> Süper Yönetim Paneli (Müşteri & Kullanıcı Yönetimi)</h3>
+                <button onclick="closeSuperAdminModal()" class="w-8 h-8 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-50">
+                <!-- Site URL Setup Box -->
+                <div class="bg-purple-50 border border-purple-200 p-4 rounded-2xl space-y-2">
+                    <label class="block text-xs font-bold text-purple-900 flex items-center gap-2">
+                        <i class="fa-solid fa-globe"></i> İnternet Site Adresiniz (Netlify / Tiiny.host URL)
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="url" id="custom-site-url" placeholder="https://kulubunuz.netlify.app" class="flex-1 px-3 py-2 text-xs border border-purple-200 rounded-xl bg-white outline-none font-mono">
+                        <button type="button" onclick="saveSiteUrl()" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow transition">Kaydet</button>
+                    </div>
+                    <p class="text-[11px] text-purple-700 leading-relaxed">Müşterilerinize göndereceğiniz linklerin <strong>404 hatası vermemesi</strong> için dosyayı Netlify/Tiiny'ye yükledikten sonra aldığınız adresi buraya yapıştırıp kaydedin.</p>
+                </div>
+
+                <!-- Add Tenant Form -->
+                <form id="tenant-form" onsubmit="saveTenant(event)" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                        <i class="fa-solid fa-user-plus text-purple-600"></i> Yeni Kullanıcı / Kulüp Tanımla
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kullanıcı Adı <span class="text-red-500">*</span></label>
+                            <input type="text" id="tenant-user" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Giriş Parolası <span class="text-red-500">*</span></label>
+                            <input type="text" id="tenant-pass" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kulüp / Antrenör Adı <span class="text-red-500">*</span></label>
+                            <input type="text" id="tenant-club-name" required placeholder="Örn: Ünye Spor Kulübü" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium uppercase">
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Kullanıcıyı Oluştur & Yetkilendir
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Tenants List -->
+                <div class="space-y-3">
+                    <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                        <span>Tanımlı Kullanıcılar (<span id="tenant-count">0</span>)</span>
+                        <span class="text-[10px] text-slate-500 font-normal">Her kullanıcının verisi %100 izoledir.</span>
+                    </h4>
+                    <div id="tenants-list" class="space-y-2">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BACKUP MODAL -->
+    <div id="backup-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-database text-emerald-600"></i> Veri Yedekleme & Geri Yükleme</h3>
+                <button onclick="closeBackupModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-5 bg-white text-center">
+                <p class="text-xs text-slate-500 leading-relaxed">Tüm sporcularınızı, kulüplerinizi ve ayarlarınızı yedekleyin veya eski yedeğinizi yükleyin.</p>
+                <button onclick="exportBackup()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-download"></i> Yedek Dosyası İndir (.json)
+                </button>
+                <div class="border-t pt-4">
+                    <label class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 border border-slate-200">
+                        <i class="fa-solid fa-upload"></i> Yedekten Geri Yükle
+                        <input type="file" accept=".json" class="hidden" onchange="importBackup(event)">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API KEY MODAL -->
+    <div id="apikey-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-key text-amber-500"></i> Gemini AI Anahtarı</h3>
+                <button onclick="closeApiKeyModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-4 bg-white">
+                <p class="text-xs text-slate-500 leading-relaxed">Kimlik kartlarını otomatik taramak için Google Gemini API anahtarınızı girin.</p>
+                <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." class="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none font-mono">
+                <button onclick="saveApiKey()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-xl text-xs font-bold transition shadow-md">Anahtarı Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global State & Tenant Isolation Logic
+        window.currentTenantId = 'default';
+        window.isSuperAdmin = false;
+        
+        // Super Admin Master Credentials (Patron Girişi)
+        const MASTER_ADMIN_USER = "admin";
+        const MASTER_ADMIN_PASS = "admin123";
+
+        window.tenants = JSON.parse(localStorage.getItem('sports_tenants') || '[]');
+        window.athletes = [];
+        window.clubs = [];
+        window.pendingAthletes = [];
+
+        // Initialize tenant specific storage keys
+        function getTenantKey(key) {
+            return `${key}_${window.currentTenantId}`;
+        }
+
+        function loadTenantState() {
+            window.athletes = JSON.parse(localStorage.getItem(getTenantKey('sports_athletes')) || '[]');
+            window.clubs = JSON.parse(localStorage.getItem(getTenantKey('sports_clubs')) || '[]');
+            window.pendingAthletes = JSON.parse(localStorage.getItem(getTenantKey('sports_pending')) || '[]');
+
+            // Sync Athletes & Clubs for current tenant from Cloud
+            if(db && window.currentTenantId) {
+                db.ref(`tenants/${window.currentTenantId}/athletes`).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if(data) {
+                        window.athletes = Object.values(data);
+                        localStorage.setItem(getTenantKey('sports_athletes'), JSON.stringify(window.athletes));
+                        if(typeof window.renderAthletes === 'function') window.renderAthletes();
+                        updateStats();
+                    }
+                });
+
+                db.ref(`tenants/${window.currentTenantId}/clubs`).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if(data) {
+                        window.clubs = Object.values(data);
+                        localStorage.setItem(getTenantKey('sports_clubs'), JSON.stringify(window.clubs));
+                        if(typeof window.renderClubs === 'function') window.renderClubs();
+                        populateClubSelect();
+                        updateStats();
+                    }
+                });
+            }
+        }
+
+        // Firebase Cloud Initialization
+        const firebaseConfig = {
+            databaseURL: "https://sporcu-yonetim-default-rtdb.europe-west1.firebasedatabase.app/"
+        };
+        
+        let db = null;
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps && !firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            if(typeof firebase !== 'undefined' && firebase.database) {
+                db = firebase.database();
+                initCloudSync();
+            }
+        } catch(e) {
+            console.warn("Bulut servisine yerel modda bağlanıldı:", e);
+        }
+
+        function initCloudSync() {
+            if(!db) return;
+
+            // 1. Sync Tenants list from Cloud
+            db.ref('tenants_list').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(data) {
+                    window.tenants = Object.values(data);
+                    localStorage.setItem('sports_tenants', JSON.stringify(window.tenants));
+                    if(window.isSuperAdmin && document.getElementById('super-admin-modal') && !document.getElementById('super-admin-modal').classList.contains('hidden')) {
+                        renderTenantsList();
+                    }
+                }
+            });
+
+            // 2. Pending Applications Sync
+            const path = `tenants/${window.currentTenantId}/pending_applications`;
+            const pendingRef = db.ref(path);
+            pendingRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(data) {
+                    const cloudPending = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+                    window.pendingAthletes = cloudPending;
+                    localStorage.setItem(getTenantKey('sports_pending'), JSON.stringify(window.pendingAthletes));
+                    updatePendingBadge();
+                    if(document.getElementById('pending-modal') && !document.getElementById('pending-modal').classList.contains('hidden')) {
+                        openPendingModal();
+                    }
+                }
+            });
+        }
+
+        function checkAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const loginUser = urlParams.get('login_user');
+
+            // 1. Smart Token Based Auto-Auth Setup
+            if (token) {
+                try {
+                    const jsonStr = decodeURIComponent(atob(token));
+                    const tData = JSON.parse(jsonStr);
+                    if (tData && tData.username && tData.password) {
+                        let localTenants = JSON.parse(localStorage.getItem('sports_tenants') || '[]');
+                        const existsIdx = localTenants.findIndex(t => t.username.toLowerCase() === tData.username.toLowerCase());
+                        if (existsIdx > -1) {
+                            localTenants[existsIdx] = tData;
+                        } else {
+                            localTenants.push(tData);
+                        }
+                        localStorage.setItem('sports_tenants', JSON.stringify(localTenants));
+                        window.tenants = localTenants;
+
+                        const userField = document.getElementById('auth-username');
+                        const passField = document.getElementById('auth-password');
+                        if (userField) userField.value = tData.username;
+                        if (passField) passField.value = tData.password;
+
+                        const subtitle = document.getElementById('login-subtitle');
+                        if (subtitle) {
+                            subtitle.innerHTML = `<span class="text-emerald-600 font-bold">✨ ${tData.clubName || tData.username}</span> hesabınız tanımlandı. Giriş Yap butonuna basınız.`;
+                        }
+                        return;
+                    }
+                } catch(err) {
+                    console.warn("Token ayrıştırma hatası:", err);
+                }
+            }
+
+            // 2. Standard username query fallback
+            if(loginUser) {
+                const userField = document.getElementById('auth-username');
+                if(userField) userField.value = loginUser;
+                const subtitle = document.getElementById('login-subtitle');
+                if(subtitle) {
+                    subtitle.innerHTML = `<span class="text-indigo-600 font-bold">🔑 ${loginUser}</span> hesabına giriş yapıyorsunuz. Parolanızı giriniz.`;
+                }
+            }
+        }
+
+        async function handleAuth(e) {
+            if(e && e.preventDefault) e.preventDefault();
+            const u = (document.getElementById('auth-username')?.value || '').trim();
+            const p = (document.getElementById('auth-password')?.value || '').trim();
+            const err = document.getElementById('login-error');
+            const btn = document.getElementById('auth-btn');
+
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Giriş Yapılıyor...';
+            }
+
+            try {
+                // 1. Immediate Master Super Admin Check (Never blocked by network)
+                if(u === MASTER_ADMIN_USER && p === MASTER_ADMIN_PASS) {
+                    window.isSuperAdmin = true;
+                    window.currentTenantId = 'master_admin';
+                    const sBtn = document.getElementById('super-admin-btn');
+                    if(sBtn) sBtn.classList.remove('hidden');
+                    unlockSystem();
+                    return;
+                }
+
+                // 2. Non-blocking cloud sync check with strict 2-second timeout
+                if(db) {
+                    try {
+                        const cloudPromise = db.ref('tenants_list').once('value');
+                        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000));
+                        const snap = await Promise.race([cloudPromise, timeoutPromise]);
+                        if(snap && snap.val()) {
+                            window.tenants = Object.values(snap.val());
+                            localStorage.setItem('sports_tenants', JSON.stringify(window.tenants));
+                        }
+                    } catch(ex) {
+                        console.warn("Cloud tenant fetch skipped or timed out:", ex);
+                    }
+                }
+
+                // 3. Check Tenants List
+                const tenant = window.tenants.find(t => t.username.toLowerCase() === u.toLowerCase() && t.password === p);
+                if(tenant) {
+                    window.isSuperAdmin = false;
+                    window.currentTenantId = tenant.id;
+                    const sBtn = document.getElementById('super-admin-btn');
+                    if(sBtn) sBtn.classList.add('hidden');
+                    unlockSystem();
+                    return;
+                }
+
+                // 4. Fallback single-user credentials
+                const savedUser = localStorage.getItem('sports_admin_user') || 'admin';
+                const savedPass = localStorage.getItem('sports_admin_pass') || '1234';
+                if(u.toLowerCase() === savedUser.toLowerCase() && p === savedPass) {
+                    window.isSuperAdmin = false;
+                    window.currentTenantId = 'default';
+                    const sBtn = document.getElementById('super-admin-btn');
+                    if(sBtn) sBtn.classList.add('hidden');
+                    unlockSystem();
+                    return;
+                }
+
+                if(err) {
+                    err.innerText = "Hatalı kullanıcı adı veya parola!";
+                    err.classList.remove('hidden');
+                    setTimeout(() => err.classList.add('hidden'), 3500);
+                }
+
+            } finally {
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Sisteme Giriş Yap';
+                }
+            }
+        }
+
+        function unlockSystem() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('flex');
+            
+            loadTenantState();
+            if(typeof window.renderClubs === 'function') window.renderClubs();
+            if(typeof window.renderAthletes === 'function') window.renderAthletes();
+            if(typeof window.updateFilterBranches === 'function') window.updateFilterBranches();
+            populateClubSelect();
+            updateStats();
+            updatePendingBadge();
+        }
+
+        // --- ATHLETE LIST & FILTERING FUNCTIONS ---
+        window.renderAthletes = function() {
+            const list = document.getElementById('athletes-list');
+            if(!list) return;
+
+            const filtered = window.athletes.filter(a => {
+                const search = (document.getElementById('athlete-search')?.value || '').toLowerCase();
+                const clubFilter = document.getElementById('filter-club')?.value || '';
+                const branchFilter = document.getElementById('filter-branch')?.value || '';
+
+                const matchesSearch = !search || 
+                    `${a.firstName} ${a.lastName}`.toLowerCase().includes(search) || 
+                    (a.tcNumber && a.tcNumber.includes(search));
+                const matchesClub = !clubFilter || a.clubId === clubFilter;
+                
+                const athleteBranches = Array.isArray(a.branch) ? a.branch : (a.branch ? [a.branch] : []);
+                const matchesBranch = !branchFilter || athleteBranches.includes(branchFilter);
+
+                return matchesSearch && matchesClub && matchesBranch;
+            });
+
+            const countEl = document.getElementById('athlete-count');
+            if(countEl) countEl.innerText = filtered.length;
+
+            if(filtered.length === 0) {
+                list.innerHTML = '<div class="text-xs text-slate-400 text-center py-8">Kayıtlı sporcu bulunamadı.</div>';
+                return;
+            }
+
+            list.innerHTML = filtered.map(a => {
+                const club = window.clubs.find(c => c.id === a.clubId);
+                const branches = Array.isArray(a.branch) ? a.branch.join(', ') : (a.branch || '-');
+                return `
+                    <div class="p-3 bg-slate-800 hover:bg-slate-750 border border-slate-700/60 rounded-xl transition cursor-pointer flex items-center justify-between group" onclick="editAthlete('${a.id}')">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <img src="${a.profilePic || 'https://placehold.co/100x100/1e293b/94a3b8?text=Sporcu'}" class="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0">
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs text-slate-100 group-hover:text-blue-400 transition truncate">${a.firstName} ${a.lastName}</div>
+                                <div class="text-[10px] text-slate-400 truncate">${club ? club.name : 'Kulüpsüz'} • ${branches}</div>
+                            </div>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteAthlete('${a.id}')" class="text-slate-500 hover:text-red-400 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition shrink-0">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.filterAthletes = function() {
+            window.renderAthletes();
+        };
+
+        function populateClubSelect() {
+            const formSelect = document.getElementById('ath-club');
+            const filterSelect = document.getElementById('filter-club');
+            
+            const clubOptions = window.clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            
+            if(formSelect) {
+                formSelect.innerHTML = '<option value="">Kulüp Seçin</option>' + clubOptions;
+            }
+            if(filterSelect) {
+                filterSelect.innerHTML = '<option value="">Tüm Kulüpler</option>' + clubOptions;
+            }
+        }
+
+        window.updateFilterBranches = function() {
+            const clubId = document.getElementById('filter-club')?.value;
+            const branchSelect = document.getElementById('filter-branch');
+            if(!branchSelect) return;
+
+            let branches = new Set();
+            if(clubId) {
+                const club = window.clubs.find(c => c.id === clubId);
+                if(club && club.branches) {
+                    club.branches.split(',').forEach(b => branches.add(b.trim()));
+                }
+            } else {
+                window.clubs.forEach(c => {
+                    if(c.branches) {
+                        c.branches.split(',').forEach(b => branches.add(b.trim()));
+                    }
+                });
+            }
+
+            branchSelect.innerHTML = '<option value="">Tüm Branşlar</option>' + 
+                Array.from(branches).map(b => `<option value="${b}">${b}</option>`).join('');
+        };
+
+        function updateBranchDropdown(clubId) {
+            const container = document.getElementById('ath-branch-container');
+            if(!container) return;
+            
+            if(!clubId) {
+                container.innerHTML = '<span class="text-slate-400 py-1">Önce Kulüp Seçin</span>';
+                return;
+            }
+
+            const club = window.clubs.find(c => c.id === clubId);
+            if(!club || !club.branches) {
+                container.innerHTML = '<span class="text-slate-400 py-1">Bu kulübün tanımlı branşı yok.</span>';
+                return;
+            }
+
+            const branchList = club.branches.split(',').map(s => s.trim()).filter(s => s);
+            container.innerHTML = branchList.map(b => `
+                <label class="flex items-center gap-2 p-1.5 bg-white hover:bg-blue-50 rounded-lg cursor-pointer border border-slate-200 transition">
+                    <input type="checkbox" name="ath_branch_cb" value="${b}" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                    <span class="text-xs font-semibold text-slate-700">${b}</span>
+                </label>
+            `).join('');
+        }
+
+        function getSelectedBranches() {
+            const checkboxes = document.querySelectorAll('input[name="ath_branch_cb"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function editClub(id) {
+            const c = window.clubs.find(x => x.id === id);
+            if(!c) return;
+            openClubModal();
+            document.getElementById('club-id').value = c.id;
+            document.getElementById('club-name').value = c.name || '';
+            document.getElementById('club-sicil').value = c.sicil || '';
+            document.getElementById('club-founded').value = c.founded || '';
+            document.getElementById('club-vd').value = c.vd || '';
+            document.getElementById('club-vno').value = c.vno || '';
+            document.getElementById('club-auth-name').value = c.authName || '';
+            document.getElementById('club-auth-title').value = c.authTitle || '';
+            document.getElementById('club-auth-tc').value = c.authTc || '';
+            document.getElementById('club-auth-phone').value = c.authPhone || '';
+            document.getElementById('club-branches').value = c.branches || '';
+            document.getElementById('club-notes').value = c.notes || '';
+        }
+
+        function editAthlete(id) {
+            const a = window.athletes.find(x => x.id === id);
+            if(!a) return;
+            openAthleteForm();
+
+            document.getElementById('ath-id').value = a.id;
+            document.getElementById('athlete-form-title').innerText = 'Sporcu Bilgilerini Düzenle';
+
+            document.getElementById('ath-first').value = a.firstName || '';
+            document.getElementById('ath-last').value = a.lastName || '';
+            document.getElementById('ath-tc').value = a.tcNumber || '';
+            document.getElementById('ath-dob').value = a.dob || '';
+            document.getElementById('ath-father').value = a.father || '';
+            document.getElementById('ath-mother').value = a.mother || '';
+            document.getElementById('ath-blood').value = a.blood || '';
+            document.getElementById('ath-pob').value = a.pob || '';
+            document.getElementById('ath-phone').value = a.phone || '';
+            document.getElementById('ath-school').value = a.school || '';
+            document.getElementById('ath-grade').value = a.grade || '';
+            document.getElementById('ath-school-no').value = a.schoolNo || '';
+
+            document.getElementById('guard-name').value = a.guardName || '';
+            document.getElementById('guard-tc').value = a.guardTc || '';
+            document.getElementById('guard-relation').value = a.guardRelation || '';
+
+            document.getElementById('ath-club').value = a.clubId || '';
+            updateBranchDropdown(a.clubId);
+
+            const savedBranches = Array.isArray(a.branch) ? a.branch : (a.branch ? [a.branch] : []);
+            document.querySelectorAll('input[name="ath_branch_cb"]').forEach(cb => {
+                if(savedBranches.includes(cb.value)) cb.checked = true;
+            });
+
+            if(a.idFront) {
+                document.getElementById('preview-front').src = a.idFront;
+                document.getElementById('preview-front').classList.remove('hidden');
+                document.getElementById('id-front').dataset.base64 = a.idFront;
+            }
+            if(a.idBack) {
+                document.getElementById('preview-back').src = a.idBack;
+                document.getElementById('preview-back').classList.remove('hidden');
+                document.getElementById('id-back').dataset.base64 = a.idBack;
+            }
+            if(a.profilePic) {
+                document.getElementById('profile-preview').src = a.profilePic;
+                document.getElementById('ath-pic').dataset.base64 = a.profilePic;
+            }
+            if(a.healthReportData) {
+                document.getElementById('health-report').dataset.data = a.healthReportData;
+                document.getElementById('health-report').dataset.type = a.healthReportType;
+                document.getElementById('health-status').innerText = 'Sağlık Raporu Yüklendi';
+                document.getElementById('btn-view-health').classList.remove('hidden');
+            }
+
+            checkAgeForGuardian();
+        }
+
+        // --- IMAGE & FILE HELPERS ---
+        function getBase64(file, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => callback(reader.result);
+            reader.onerror = error => console.error('Base64 error:', error);
+        }
+
+        function handleImageUpload(input, side) {
+            if(!input.files || !input.files[0]) return;
+            getBase64(input.files[0], (b64) => {
+                input.dataset.base64 = b64;
+                const img = document.getElementById(`preview-${side}`);
+                if(img) {
+                    img.src = b64;
+                    img.classList.remove('hidden');
+                }
+            });
+        }
+
+        function previewProfilePic(input) {
+            if(!input.files || !input.files[0]) return;
+            getBase64(input.files[0], (b64) => {
+                input.dataset.base64 = b64;
+                document.getElementById('profile-preview').src = b64;
+            });
+        }
+
+        function handleHealthReport(input) {
+            if(!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            getBase64(file, (b64) => {
+                input.dataset.data = b64;
+                input.dataset.type = file.type.includes('pdf') ? 'pdf' : 'img';
+                document.getElementById('health-status').innerText = `Yüklendi: ${file.name}`;
+                document.getElementById('btn-view-health').classList.remove('hidden');
+            });
+        }
+
+        function checkAgeForGuardian() {
+            const dob = document.getElementById('ath-dob').value;
+            if(!dob) return;
+            const birthDate = new Date(dob);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            const gSec = document.getElementById('guardian-section');
+            if(age < 18) {
+                gSec.classList.remove('hidden');
+            } else {
+                gSec.classList.add('hidden');
+            }
+        }
+
+        function shareProfilePic() {
+            const b64 = document.getElementById('ath-pic').dataset.base64 || document.getElementById('profile-preview').src;
+            if(!b64 || b64.includes('placehold.co')) {
+                alert('Paylaşılacak bir vesikalık fotoğraf yüklenmemiş.');
+                return;
+            }
+            const win = window.open("");
+            win.document.write(`<img src="${b64}" style="max-width:100%; height:auto;">`);
+        }
+
+        // --- GEMINI AI ID SCANNER ---
+        async function scanID(side) {
+            const input = document.getElementById(`id-${side}`);
+            const b64 = input?.dataset.base64;
+            if(!b64) {
+                alert('Lütfen önce kimlik fotoğrafını seçin!');
+                return;
+            }
+
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if(!apiKey) {
+                alert('Lütfen önce sağ üstteki "AI Key" butonundan Gemini API anahtarınızı girin.');
+                openApiKeyModal();
+                return;
+            }
+
+            const statusBox = document.getElementById('ocr-status-box');
+            const statusText = document.getElementById('ocr-status-text');
+            statusBox.classList.remove('hidden');
+            statusText.innerText = 'Yapay zeka kimliği analiz ediyor, lütfen bekleyin...';
+
+            try {
+                const base64Data = b64.split(',')[1] || b64;
+                const promptText = `Sen bir Türkiye Cumhuriyeti Kimlik Kartı OCR uzmanısın. Görseldeki bilgileri oku ve SADECE aşağıdaki JSON formatında yanıt ver. Hiçbir ekstra açıklama yazma.
+{
+  "firstName": "SPORCU ADI",
+  "lastName": "SPORCU SOYADI",
+  "tcNumber": "11 HANELİ TC NO",
+  "dob": "YYYY-MM-DD",
+  "father": "BABA ADI",
+  "mother": "ANNE ADI",
+  "pob": "DOĞUM YERİ",
+  "blood": "KAN GRUBU"
+}`;
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: promptText },
+                                { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+                            ]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if(textResponse) {
+                    const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+                    const parsed = JSON.parse(cleanJson);
+
+                    if(parsed.firstName) document.getElementById('ath-first').value = parsed.firstName.toUpperCase();
+                    if(parsed.lastName) document.getElementById('ath-last').value = parsed.lastName.toUpperCase();
+                    if(parsed.tcNumber) document.getElementById('ath-tc').value = parsed.tcNumber;
+                    if(parsed.dob) {
+                        document.getElementById('ath-dob').value = parsed.dob;
+                        checkAgeForGuardian();
+                    }
+                    if(parsed.father) document.getElementById('ath-father').value = parsed.father.toUpperCase();
+                    if(parsed.mother) document.getElementById('ath-mother').value = parsed.mother.toUpperCase();
+                    if(parsed.pob) document.getElementById('ath-pob').value = parsed.pob.toUpperCase();
+                    if(parsed.blood) document.getElementById('ath-blood').value = parsed.blood.toUpperCase();
+
+                    statusText.innerText = 'Kimlik başarıyla tarandı ve form dolduruldu!';
+                    setTimeout(() => statusBox.classList.add('hidden'), 3000);
+                } else {
+                    throw new Error('Yapay zeka yanıt üretemedi.');
+                }
+            } catch(err) {
+                console.error('OCR Error:', err);
+                alert('Kimlik okuma sırasında hata oluştu. Lütfen API anahtarınızı veya görseli kontrol edin.');
+                statusBox.classList.add('hidden');
+            }
+        }
+
+        // --- SUPER ADMIN MANAGEMENT FUNCTIONS ---
+        function openSuperAdminModal() {
+            renderTenantsList();
+            document.getElementById('super-admin-modal').classList.remove('hidden');
+            document.getElementById('super-admin-modal').classList.add('flex');
+        }
+        function closeSuperAdminModal() {
+            document.getElementById('super-admin-modal').classList.add('hidden');
+            document.getElementById('super-admin-modal').classList.remove('flex');
+        }
+
+        function saveTenant(e) {
+            e.preventDefault();
+            const user = document.getElementById('tenant-user').value.trim();
+            const pass = document.getElementById('tenant-pass').value.trim();
+            const clubName = document.getElementById('tenant-club-name').value.trim().toUpperCase();
+
+            if(window.tenants.some(t => t.username === user)) {
+                alert('Bu kullanıcı adı zaten kullanılıyor! Lütfen farklı bir kullanıcı adı seçin.');
+                return;
+            }
+
+            const newTenant = {
+                id: 't_' + Date.now(),
+                username: user,
+                password: pass,
+                clubName: clubName,
+                createdAt: new Date().toLocaleDateString()
+            };
+            window.tenants.push(newTenant);
+            localStorage.setItem('sports_tenants', JSON.stringify(window.tenants));
+
+            // Save to Firebase Cloud so any device can authenticate immediately
+            if(db) {
+                db.ref(`tenants_list/${newTenant.id}`).set(newTenant);
+            }
+
+            renderTenantsList();
+            document.getElementById('tenant-form').reset();
+            alert('Kullanıcı başarıyla oluşturuldu ve bulut sunucuya kaydedildi!');
+        }
+
+        function saveSiteUrl() {
+            const url = document.getElementById('custom-site-url').value.trim();
+            if(url) {
+                localStorage.setItem('sports_site_url', url);
+                alert('Site adresi kaydedildi! Artık müşteri linkleri 404 hatası vermeyecek.');
+            } else {
+                localStorage.removeItem('sports_site_url');
+                alert('Custom site adresi kaldırıldı.');
+            }
+            renderTenantsList();
+        }
+
+        function renderTenantsList() {
+            const list = document.getElementById('tenants-list');
+            document.getElementById('tenant-count').innerText = window.tenants.length;
+
+            const siteUrlInput = document.getElementById('custom-site-url');
+            if(siteUrlInput && localStorage.getItem('sports_site_url')) {
+                siteUrlInput.value = localStorage.getItem('sports_site_url');
+            }
+
+            if(window.tenants.length === 0) {
+                list.innerHTML = '<div class="text-xs text-slate-500 text-center py-6 border border-dashed rounded-xl">Henüz alt kullanıcı tanımlanmadı.</div>';
+                return;
+            }
+
+            const savedSiteUrl = localStorage.getItem('sports_site_url');
+            const baseUrl = savedSiteUrl ? savedSiteUrl.replace(/\/$/, '') : window.location.href.split('?')[0];
+
+            list.innerHTML = window.tenants.map(t => {
+                const token = btoa(encodeURIComponent(JSON.stringify(t)));
+                const loginLink = `${baseUrl}?token=${token}`;
+                return `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-white border border-slate-200 rounded-xl gap-3 shadow-sm">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-900 text-xs">${t.clubName}</span>
+                                <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Aktif Kullanıcı</span>
+                            </div>
+                            <div class="text-[11px] text-slate-600 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                <span><strong>Kullanıcı:</strong> ${t.username}</span>
+                                <span><strong>Şifre:</strong> ${t.password}</span>
+                                <span><strong>Tarih:</strong> ${t.createdAt}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="copyTenantLink('${loginLink}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition border border-indigo-200 flex items-center gap-1">
+                                <i class="fa-solid fa-link"></i> Link Kopyala
+                            </button>
+                            <button onclick="deleteTenant('${t.id}')" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-500 text-red-600 hover:text-white flex items-center justify-center transition" title="Kullanıcıyı Sil">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function copyTenantLink(link) {
+            const temp = document.createElement('input');
+            document.body.appendChild(temp);
+            temp.value = link;
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            alert('Özel Giriş Linki Kopyalandı! Bu linki kullanıcıya WhatsApp üzerinden atabilirsiniz.');
+        }
+
+        function deleteTenant(id) {
+            if(confirm('Bu kullanıcıyı ve ona ait verileri silmek istediğinize emin misiniz?')) {
+                window.tenants = window.tenants.filter(t => t.id !== id);
+                localStorage.setItem('sports_tenants', JSON.stringify(window.tenants));
+                
+                if(db) {
+                    db.ref(`tenants_list/${id}`).remove();
+                    db.ref(`tenants/${id}`).remove();
+                }
+
+                localStorage.removeItem(`sports_athletes_${id}`);
+                localStorage.removeItem(`sports_clubs_${id}`);
+                localStorage.removeItem(`sports_pending_${id}`);
+                renderTenantsList();
+            }
+        }
+
+        // Share Link Functions
+        function openShareModal() {
+            const cleanUrl = window.location.href.split('?')[0];
+            const link = cleanUrl + '?register=true';
+            
+            document.getElementById('share-link-input').value = link;
+            document.getElementById('qr-code-view').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(link)}" class="w-full h-full object-contain">`;
+            
+            const warningEl = document.getElementById('local-file-warning');
+            if (window.location.protocol === 'file:') {
+                if(warningEl) warningEl.classList.remove('hidden');
+            } else {
+                if(warningEl) warningEl.classList.add('hidden');
+            }
+
+            document.getElementById('share-modal').classList.remove('hidden');
+            document.getElementById('share-modal').classList.add('flex');
+        }
+        function closeShareModal() {
+            document.getElementById('share-modal').classList.add('hidden');
+            document.getElementById('share-modal').classList.remove('flex');
+        }
+        function copyShareLink() {
+            const input = document.getElementById('share-link-input');
+            input.select();
+            document.execCommand('copy');
+            alert('Kayıt linki kopyalandı!');
+        }
+        function openPublicForm() {
+            closeShareModal();
+            const sel = document.getElementById('pub-club');
+            sel.innerHTML = '<option value="">Kulüp Seçin</option>' + window.clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            document.getElementById('pub-branch-container').innerHTML = '<span class="text-slate-400 py-1">Önce Kulüp Seçin</span>';
+            document.getElementById('public-registration-screen').classList.remove('hidden');
+        }
+
+        function updatePublicBranches() {
+            const clubId = document.getElementById('pub-club').value;
+            const container = document.getElementById('pub-branch-container');
+            if(!clubId) { 
+                container.innerHTML = '<span class="text-slate-400 py-1">Önce Kulüp Seçin</span>'; 
+                return; 
+            }
+            const club = window.clubs.find(c => c.id === clubId);
+            if(!club || !club.branches) { 
+                container.innerHTML = '<span class="text-slate-400 py-1">Bu kulübün tanımlı branşı yok.</span>'; 
+                return; 
+            }
+            const branches = club.branches.split(',').map(s => s.trim()).filter(s => s);
+            container.innerHTML = branches.map(b => `
+                <label class="flex items-center gap-2 p-1.5 bg-white hover:bg-indigo-50 rounded-lg cursor-pointer border border-slate-200 transition">
+                    <input type="checkbox" name="pub_branch_cb" value="${b}" class="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                    <span class="text-xs font-semibold text-slate-700">${b}</span>
+                </label>
+            `).join('');
+        }
+
+        function closePublicForm() {
+            document.getElementById('public-registration-screen').classList.add('hidden');
+        }
+
+        // Public Submission (Telefondan gönderilen veriyi hem yerel hem buluta yazar)
+        function submitPublicRegistration(e) {
+            e.preventDefault();
+            const clubId = document.getElementById('pub-club').value;
+            const selectedBranches = Array.from(document.querySelectorAll('input[name="pub_branch_cb"]:checked')).map(cb => cb.value);
+
+            if(selectedBranches.length === 0) {
+                alert("Lütfen en az bir branş seçiniz.");
+                return;
+            }
+
+            const picFile = document.getElementById('pub-pic').files[0];
+            const frontFile = document.getElementById('pub-front').files[0];
+            const backFile = document.getElementById('pub-back').files[0];
+            const healthFile = document.getElementById('pub-health').files[0];
+            
+            if(!picFile || !frontFile || !backFile || !healthFile) {
+                alert("Lütfen tüm fotoğraf ve belge seçimlerini yaptığınızdan emin olun.");
+                return;
+            }
+
+            getBase64(picFile, (picBase64) => {
+                getBase64(frontFile, (frontBase64) => {
+                    getBase64(backFile, (backBase64) => {
+                        getBase64(healthFile, (healthBase64) => {
+                            const newAppId = 'pend_' + Date.now();
+                            const newApp = {
+                                clubId: clubId,
+                                branch: selectedBranches,
+                                firstName: document.getElementById('pub-first').value.trim().toUpperCase(),
+                                lastName: document.getElementById('pub-last').value.trim().toUpperCase(),
+                                tcNumber: document.getElementById('pub-tc').value.trim(),
+                                dob: document.getElementById('pub-dob').value,
+                                father: document.getElementById('pub-father').value.trim().toUpperCase(),
+                                phone: document.getElementById('pub-phone').value.trim(),
+                                school: document.getElementById('pub-school').value.trim().toUpperCase(),
+                                grade: document.getElementById('pub-grade').value.trim().toUpperCase(),
+                                schoolNo: document.getElementById('pub-school-no').value.trim(),
+                                profilePic: picBase64,
+                                idFront: frontBase64,
+                                idBack: backBase64,
+                                healthReportData: healthBase64,
+                                healthReportType: healthFile.type.includes('pdf') ? 'pdf' : 'img',
+                                date: new Date().toLocaleDateString()
+                            };
+
+                            // Bulut Veritabanına Gönder
+                            if(db) {
+                                db.ref('pending_applications/' + newAppId).set(newApp);
+                            }
+
+                            window.pendingAthletes.push({ id: newAppId, ...newApp });
+                            localStorage.setItem('sports_pending', JSON.stringify(window.pendingAthletes));
+                            
+                            alert('Başvurunuz başarıyla gönderildi! Kulüp yöneticisi onayına sunulmuştur.');
+                            document.getElementById('public-reg-form').reset();
+                            closePublicForm();
+                        });
+                    });
+                });
+            });
+        }
+
+        function updatePendingBadge() {
+            const badge = document.getElementById('pending-badge');
+            const count = window.pendingAthletes.length;
+            if(count > 0) {
+                badge.innerText = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function openPendingModal() {
+            const list = document.getElementById('pending-list');
+            if(window.pendingAthletes.length === 0) {
+                list.innerHTML = '<div class="text-center py-10 text-xs text-slate-400">Bekleyen başvuru bulunmuyor.</div>';
+            } else {
+                list.innerHTML = window.pendingAthletes.map(p => {
+                    const club = window.clubs.find(c => c.id === p.clubId);
+                    return `
+                        <div class="flex items-center justify-between p-3.5 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <img src="${p.profilePic || 'https://placehold.co/100'}" class="w-10 h-10 rounded-lg object-cover border">
+                                <div>
+                                    <h4 class="font-bold text-xs text-slate-900">${p.firstName} ${p.lastName} (${p.tcNumber})</h4>
+                                    <p class="text-[10px] text-slate-500">${club ? club.name : 'Kulüp Seçilmemiş'} • Başvuru: ${p.date}</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="approvePending('${p.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">Onayla & Ekle</button>
+                                <button onclick="rejectPending('${p.id}')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-bold transition">Reddet</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            document.getElementById('pending-modal').classList.remove('hidden');
+            document.getElementById('pending-modal').classList.add('flex');
+        }
+
+        function closePendingModal() {
+            document.getElementById('pending-modal').classList.add('hidden');
+            document.getElementById('pending-modal').classList.remove('flex');
+        }
+
+        function approvePending(id) {
+            const idx = window.pendingAthletes.findIndex(p => p.id === id);
+            if(idx > -1) {
+                const athlete = { ...window.pendingAthletes[idx] };
+                delete athlete.id;
+                athlete.id = Date.now().toString();
+                
+                window.athletes.push(athlete);
+                localStorage.setItem('sports_athletes', JSON.stringify(window.athletes));
+                
+                // Buluttan Sil
+                if(db) {
+                    db.ref('pending_applications/' + id).remove();
+                }
+
+                window.pendingAthletes.splice(idx, 1);
+                localStorage.setItem('sports_pending', JSON.stringify(window.pendingAthletes));
+
+                updatePendingBadge();
+                openPendingModal();
+                window.renderAthletes();
+                updateStats();
+                alert('Sporcu onaylandı ve ana listeye eklendi!');
+            }
+        }
+
+        function rejectPending(id) {
+            if(confirm('Bu başvuruyu reddetmek istediğinize emin misiniz?')) {
+                if(db) {
+                    db.ref('pending_applications/' + id).remove();
+                }
+                window.pendingAthletes = window.pendingAthletes.filter(p => p.id !== id);
+                localStorage.setItem('sports_pending', JSON.stringify(window.pendingAthletes));
+                updatePendingBadge();
+                openPendingModal();
+            }
+        }
+
+        // API Key Modal
+        function openApiKeyModal() {
+            document.getElementById('gemini-api-key-input').value = localStorage.getItem('gemini_api_key') || '';
+            document.getElementById('apikey-modal').classList.remove('hidden');
+            document.getElementById('apikey-modal').classList.add('flex');
+        }
+        function closeApiKeyModal() {
+            document.getElementById('apikey-modal').classList.add('hidden');
+            document.getElementById('apikey-modal').classList.remove('flex');
+        }
+        function saveApiKey() {
+            const key = document.getElementById('gemini-api-key-input').value.trim();
+            if(!key) { alert('Lütfen geçerli bir API anahtarı girin.'); return; }
+            localStorage.setItem('gemini_api_key', key);
+            alert('Gemini API anahtarı başarıyla kaydedildi!');
+            closeApiKeyModal();
+        }
+
+        // Backup and Restore System
+        function openBackupModal() {
+            document.getElementById('backup-modal').classList.remove('hidden');
+            document.getElementById('backup-modal').classList.add('flex');
+        }
+        function closeBackupModal() {
+            document.getElementById('backup-modal').classList.add('hidden');
+            document.getElementById('backup-modal').classList.remove('flex');
+        }
+        function exportBackup() {
+            const data = {
+                athletes: window.athletes || [],
+                clubs: window.clubs || [],
+                user: localStorage.getItem('sports_admin_user') || '',
+                pass: localStorage.getItem('sports_admin_pass') || '',
+                apiKey: localStorage.getItem('gemini_api_key') || ''
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `sporcu_sistemi_yedegi_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(dlAnchorElem);
+            dlAnchorElem.click();
+            document.body.removeChild(dlAnchorElem);
+            closeBackupModal();
+        }
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data.athletes && Array.isArray(data.athletes)) {
+                        window.athletes = data.athletes;
+                        localStorage.setItem(getTenantKey('sports_athletes'), JSON.stringify(window.athletes));
+                    }
+                    if(data.clubs && Array.isArray(data.clubs)) {
+                        window.clubs = data.clubs;
+                        localStorage.setItem(getTenantKey('sports_clubs'), JSON.stringify(window.clubs));
+                    }
+                    if(data.user && data.pass) {
+                        localStorage.setItem('sports_admin_user', data.user);
+                        localStorage.setItem('sports_admin_pass', data.pass);
+                    }
+                    if(data.apiKey) {
+                        localStorage.setItem('gemini_api_key', data.apiKey);
+                    }
+                    alert("Yedek dosyası başarıyla yüklendi! Sistem verileri güncellendi.");
+                    window.renderClubs();
+                    window.renderAthletes();
+                    window.updateFilterBranches();
+                    updateStats();
+                    closeBackupModal();
+                } catch(err) {
+                    alert("Yedek dosyası bozuk veya desteklenmeyen formatta!");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function logout() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('flex');
+            document.getElementById('auth-password').value = '';
+        }
+
+        function showListMobile() {
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar-view').classList.remove('-translate-x-full', 'hidden');
+                document.getElementById('main-view').classList.add('hidden');
+            }
+        }
+        function showFormMobile() {
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar-view').classList.add('-translate-x-full', 'hidden');
+                document.getElementById('main-view').classList.remove('hidden');
+            }
+        }
+
+        function openAthleteForm() {
+            document.getElementById('athlete-form').reset();
+            document.getElementById('ath-id').value = '';
+            document.getElementById('athlete-form-title').innerText = 'Yeni Sporcu Ekle';
+            
+            ['front', 'back'].forEach(side => {
+                document.getElementById(`preview-${side}`).classList.add('hidden');
+                document.getElementById(`preview-${side}`).src = '';
+                document.getElementById(`id-${side}`).dataset.base64 = '';
+            });
+            document.getElementById('profile-preview').src = 'https://placehold.co/300x400/f8fafc/94a3b8?text=Vesikalik';
+            document.getElementById('ath-pic').dataset.base64 = '';
+            document.getElementById('ath-school').value = '';
+            document.getElementById('ath-grade').value = '';
+            document.getElementById('ath-school-no').value = '';
+            
+            document.getElementById('health-status').innerText = 'Henüz rapor yüklenmedi.';
+            document.getElementById('health-report').dataset.data = '';
+            document.getElementById('health-report').dataset.type = '';
+            document.getElementById('btn-view-health').classList.add('hidden');
+            document.getElementById('ocr-status-box').classList.add('hidden');
+
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('dashboard-banner').classList.add('hidden');
+            document.getElementById('athlete-form-container').classList.remove('hidden');
+            
+            document.getElementById('guardian-section').classList.add('hidden');
+            document.getElementById('ath-branch-container').innerHTML = '<span class="text-slate-400 py-1">Önce Kulüp Seçin</span>';
+
+            populateClubSelect();
+            showFormMobile();
+        }
+
+        function closeAthleteForm() {
+            document.getElementById('athlete-form-container').classList.add('hidden');
+            document.getElementById('dashboard-banner').classList.remove('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            showListMobile();
+        }
+
+        function updateStats() {
+            document.getElementById('stat-athlete-count').innerText = window.athletes.length;
+            document.getElementById('stat-club-count').innerText = window.clubs.length;
+            
+            const branches = new Set();
+            window.athletes.forEach(a => {
+                if(Array.isArray(a.branch)) a.branch.forEach(b => branches.add(b));
+                else if(a.branch) branches.add(a.branch);
+            });
+            document.getElementById('stat-branch-count').innerText = branches.size;
+        }
+
+        // --- CLUBS ---
+        function openClubModal() { 
+            document.getElementById('club-modal').classList.remove('hidden'); 
+            document.getElementById('club-modal').classList.add('flex'); 
+        }
+        function closeClubModal() { 
+            document.getElementById('club-modal').classList.add('hidden'); 
+            document.getElementById('club-modal').classList.remove('flex'); 
+            populateClubSelect();
+            window.renderAthletes();
+            updateFilterBranches();
+            updateStats();
+        }
+        function clearClubForm() { 
+            document.getElementById('club-form').reset(); 
+            document.getElementById('club-id').value = ''; 
+        }
+
+        window.renderClubs = function() {
+            const list = document.getElementById('club-list');
+            if(!list) return;
+            list.innerHTML = window.clubs.map(c => `
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-300 shadow-sm transition">
+                    <div class="min-w-0 flex-1 cursor-pointer" onclick="editClub('${c.id}')">
+                        <div class="font-bold text-slate-800 text-xs truncate">${c.name}</div>
+                        <div class="text-[10px] text-slate-500 mt-0.5 truncate"><i class="fa-solid fa-medal text-slate-400 mr-1"></i> ${c.branches}</div>
+                    </div>
+                    <button onclick="deleteClub('${c.id}')" class="text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `).join('') || '<div class="text-xs text-slate-500 text-center py-4 border border-dashed rounded-xl col-span-2">Henüz kulüp yok.</div>';
+        };
+
+        function saveClub(e) {
+            e.preventDefault();
+            const id = document.getElementById('club-id').value || Date.now().toString();
+            const club = {
+                id,
+                name: document.getElementById('club-name').value.trim().toUpperCase(),
+                sicil: document.getElementById('club-sicil').value.trim(),
+                founded: document.getElementById('club-founded').value,
+                vd: document.getElementById('club-vd').value.trim().toUpperCase(),
+                vno: document.getElementById('club-vno').value.trim(),
+                authName: document.getElementById('club-auth-name').value.trim().toUpperCase(),
+                authTitle: document.getElementById('club-auth-title').value.trim().toUpperCase(),
+                authTc: document.getElementById('club-auth-tc').value.trim(),
+                authPhone: document.getElementById('club-auth-phone').value.trim(),
+                branches: document.getElementById('club-branches').value.trim(),
+                notes: document.getElementById('club-notes').value.trim()
+            };
+            const idx = window.clubs.findIndex(c => c.id === id);
+            if(idx > -1) window.clubs[idx] = club; else window.clubs.push(club);
+            
+            localStorage.setItem(getTenantKey('sports_clubs'), JSON.stringify(window.clubs));
+            if(db && window.currentTenantId) {
+                db.ref(`tenants/${window.currentTenantId}/clubs/${club.id}`).set(club);
+            }
+
+            clearClubForm();
+            window.renderClubs();
+        }
+
+        function deleteClub(id) {
+            if(confirm('Bu kulübü silmek istediğinize emin misiniz?')) {
+                window.clubs = window.clubs.filter(x => x.id !== id);
+                localStorage.setItem(getTenantKey('sports_clubs'), JSON.stringify(window.clubs));
+                if(db && window.currentTenantId) {
+                    db.ref(`tenants/${window.currentTenantId}/clubs/${id}`).remove();
+                }
+                window.renderClubs();
+            }
+        }
+
+        function saveAthlete(e) {
+            e.preventDefault();
+            const branches = getSelectedBranches();
+            if(branches.length === 0) {
+                document.getElementById('branch-error').classList.remove('hidden');
+                return;
+            } else {
+                document.getElementById('branch-error').classList.add('hidden');
+            }
+
+            const id = document.getElementById('ath-id').value || Date.now().toString();
+            const a = {
+                id,
+                clubId: document.getElementById('ath-club').value,
+                branch: branches,
+                firstName: document.getElementById('ath-first').value.trim().toUpperCase(),
+                lastName: document.getElementById('ath-last').value.trim().toUpperCase(),
+                tcNumber: document.getElementById('ath-tc').value.trim(),
+                dob: document.getElementById('ath-dob').value,
+                father: document.getElementById('ath-father').value.trim().toUpperCase(),
+                mother: document.getElementById('ath-mother').value.trim().toUpperCase(),
+                blood: document.getElementById('ath-blood').value.trim(),
+                pob: document.getElementById('ath-pob').value.trim().toUpperCase(),
+                phone: document.getElementById('ath-phone').value.trim(),
+                school: document.getElementById('ath-school').value.trim().toUpperCase(),
+                grade: document.getElementById('ath-grade').value.trim().toUpperCase(),
+                schoolNo: document.getElementById('ath-school-no').value.trim(),
+                
+                guardName: document.getElementById('guard-name').value.trim().toUpperCase(),
+                guardTc: document.getElementById('guard-tc').value.trim(),
+                guardRelation: document.getElementById('guard-relation').value.trim().toUpperCase(),
+
+                idFront: document.getElementById('id-front').dataset.base64 || '',
+                idBack: document.getElementById('id-back').dataset.base64 || '',
+                profilePic: document.getElementById('ath-pic').dataset.base64 || '',
+                healthReportData: document.getElementById('health-report').dataset.data || '',
+                healthReportType: document.getElementById('health-report').dataset.type || ''
+            };
+
+            const idx = window.athletes.findIndex(x => x.id === id);
+            if(idx > -1) window.athletes[idx] = a; else window.athletes.push(a);
+            
+            localStorage.setItem(getTenantKey('sports_athletes'), JSON.stringify(window.athletes));
+            if(db && window.currentTenantId) {
+                db.ref(`tenants/${window.currentTenantId}/athletes/${a.id}`).set(a);
+            }
+
+            closeAthleteForm();
+            window.renderAthletes();
+            updateStats();
+        }
+
+        window.deleteAthlete = function(id) {
+            if(confirm('Bu sporcuyu silmek istediğinize emin misiniz?')) {
+                window.athletes = window.athletes.filter(x => x.id !== id);
+                localStorage.setItem(getTenantKey('sports_athletes'), JSON.stringify(window.athletes));
+                if(db && window.currentTenantId) {
+                    db.ref(`tenants/${window.currentTenantId}/athletes/${id}`).remove();
+                }
+                window.renderAthletes();
+                updateStats();
+            }
+        };
+
+        // --- PRINTING ---
+        function openPrintModal() {
+            document.getElementById('print-modal').classList.remove('hidden');
+            document.getElementById('print-modal').classList.add('flex');
+            
+            const sel = document.getElementById('print-athlete-select');
+            sel.innerHTML = '<option value="">Önce Sporcu Seçin...</option>' + window.athletes.map(a => `<option value="${a.id}">${a.firstName} ${a.lastName} - ${a.tcNumber}</option>`).join('');
+            
+            document.getElementById('print-branch-select').innerHTML = '<option value="">Evrak Branşı...</option>';
+            document.querySelector('.print-tab.active').click(); 
+        }
+
+        function closePrintModal() {
+            document.getElementById('print-modal').classList.add('hidden');
+            document.getElementById('print-modal').classList.remove('flex');
+        }
+
+        window.switchPrintTab = function(tabId, btn) {
+            document.querySelectorAll('.print-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            document.querySelectorAll('.print-tab').forEach(el => {
+                el.classList.remove('active', 'border-indigo-600', 'text-indigo-700');
+                el.classList.add('border-transparent', 'text-slate-500');
+            });
+            btn.classList.add('active', 'border-indigo-600', 'text-indigo-700');
+            btn.classList.remove('border-transparent', 'text-slate-500');
+        };
+
+        function formatDate(dStr) {
+            if(!dStr) return '';
+            const d = new Date(dStr);
+            return `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getFullYear()}`;
+        }
+
+        window.updatePrintPreview = function() {
+            const aId = document.getElementById('print-athlete-select').value;
+            const bSel = document.getElementById('print-branch-select');
+            
+            if(!aId) {
+                bSel.innerHTML = '<option value="">Evrak Branşı...</option>';
+                return;
+            }
+            
+            const a = window.athletes.find(x => x.id === aId);
+            const club = window.clubs.find(c => c.id === a.clubId) || {};
+            
+            if(bSel.options.length <= 1 || (bSel.dataset.ath !== a.id)) {
+                const branches = Array.isArray(a.branch) ? a.branch : (a.branch ? [a.branch] : []);
+                bSel.innerHTML = branches.map(b => `<option value="${b}">${b}</option>`).join('');
+                bSel.dataset.ath = a.id;
+            }
+            
+            const selectedBranch = bSel.value || '';
+            const fullName = `${a.firstName} ${a.lastName}`;
+            const pobDob = `${a.pob || '-'} / ${formatDate(a.dob)}`;
+            const cName = club.name || '-';
+            
+            // Tab 1: Vize
+            document.getElementById('pr-v-name').innerText = fullName;
+            document.getElementById('pr-v-tc').innerText = a.tcNumber;
+            document.getElementById('pr-v-dob').innerText = pobDob;
+            document.getElementById('pr-v-father').innerText = a.father || '-';
+            document.getElementById('pr-v-mother').innerText = a.mother || '-';
+            document.getElementById('pr-v-phone').innerText = a.phone || '-';
+
+            document.getElementById('pr-v-g-name').innerText = a.guardName || '-';
+            document.getElementById('pr-v-g-tc').innerText = a.guardTc || '-';
+
+            document.getElementById('pr-v-branch').innerText = selectedBranch || '-';
+            document.getElementById('pr-v-club').innerText = cName;
+
+            // Tab 2: Transfer
+            document.getElementById('pr-t-name').innerText = fullName;
+            document.getElementById('pr-t-tc').innerText = a.tcNumber;
+            document.getElementById('pr-t-dob').innerText = pobDob;
+            document.getElementById('pr-t-father').innerText = a.father || '-';
+            document.getElementById('pr-t-mother').innerText = a.mother || '-';
+            document.getElementById('pr-t-phone').innerText = a.phone || '-';
+            
+            document.getElementById('pr-t2-name').innerText = fullName;
+            document.getElementById('pr-t2-tc').innerText = a.tcNumber;
+            document.getElementById('pr-t2-dob').innerText = pobDob;
+            document.getElementById('pr-t2-father').innerText = a.father || '-';
+            document.getElementById('pr-t2-mother').innerText = a.mother || '-';
+            document.getElementById('pr-t2-phone').innerText = a.phone || '-';
+
+            document.getElementById('pr-t-auth-name').innerText = club.authName || '-';
+            document.getElementById('pr-t-auth-tc').innerText = club.authTc || '-';
+            document.getElementById('pr-t-auth-title').innerText = club.authTitle || 'Görevi';
+            document.getElementById('pr-t-auth-phone').innerText = club.authPhone || '-';
+
+            document.getElementById('pr-t-g-name').innerText = a.guardName || '-';
+            document.getElementById('pr-t-g-tc').innerText = a.guardTc || '-';
+            document.getElementById('pr-t-g-rel').innerText = a.guardRelation || '-';
+
+            // Tab 5: Yüzme Beyanı
+            document.getElementById('pr-y-name').innerText = fullName;
+            document.getElementById('pr-y-tc').innerText = a.tcNumber;
+            document.getElementById('pr-y-dob').innerText = pobDob;
+            document.getElementById('pr-y-father').innerText = a.father || '-';
+            document.getElementById('pr-y-mother').innerText = a.mother || '-';
+
+            document.getElementById('pr-y-g-name').innerText = a.guardName || '-';
+            document.getElementById('pr-y-g-tc').innerText = a.guardTc || '-';
+
+            // Tab 3: Kimlik
+            const idFront = document.getElementById('pr-id-front');
+            const idBack = document.getElementById('pr-id-back');
+            if(a.idFront) { idFront.src = a.idFront; idFront.classList.remove('hidden'); } else idFront.classList.add('hidden');
+            if(a.idBack) { idBack.src = a.idBack; idBack.classList.remove('hidden'); } else idBack.classList.add('hidden');
+
+            // Tab 4: Sağlık
+            const hImg = document.getElementById('pr-health-img');
+            const hPdf = document.getElementById('pr-health-pdf');
+            const hEmp = document.getElementById('pr-health-empty');
+            
+            hImg.classList.add('hidden'); hPdf.classList.add('hidden'); hEmp.classList.remove('hidden');
+            if(a.healthReportData) {
+                hEmp.classList.add('hidden');
+                if(a.healthReportType === 'pdf') { hPdf.src = a.healthReportData; hPdf.classList.remove('hidden'); }
+                else { hImg.src = a.healthReportData; hImg.classList.remove('hidden'); }
+            }
+        };
+
+        window.triggerPrint = function() {
+            const activeTab = document.querySelector('.print-tab.active');
+            if(!activeTab) return;
+            const tabId = activeTab.getAttribute('onclick').match(/'([^']+)'/)[1];
+            
+            const content = document.getElementById(tabId).outerHTML;
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = `<div class="print-page flex justify-center items-start w-full bg-white">${content}</div>`;
+            printArea.querySelector('.hidden')?.classList.remove('hidden');
+            
+            window.print();
+        };
+
+        // Init on load
+        window.onload = () => {
+            checkAuth();
+            const urlParams = new URLSearchParams(window.location.search);
+            if(urlParams.get('register') === 'true') {
+                // If opened via share link, bypass auth screen and open public registration directly
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('flex');
+                window.renderClubs();
+                openPublicForm();
+            }
+        };
+    </script>
+</body>
+</html>
